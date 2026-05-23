@@ -122,7 +122,7 @@ elif status_login == "🛠️ ADMIN UTAMA":
     if password == "1234":
         st.sidebar.success("🔓 Mode Admin Aktif!")
         is_admin = True
-        buka_menu_internal = True  # Admin otomatis bisa melihat semua tab
+        buka_menu_internal = True
     else:
         if password != "":
             st.sidebar.error("❌ Password Salah!")
@@ -141,26 +141,25 @@ st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
 # ==========================================
 # 📱 STRUKTUR TABS MENU UTAMA (DINAMIS)
 # ==========================================
-# Profil Sekolah dan PPDB sekarang SELALU BISA diakses oleh Publik/Umum saat pertama buka
+# Profil Sekolah dan PPDB selalu bisa diakses oleh publik sejak awal
 daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)"]
 
-# Jika login sukses (Admin/Guru/Ortu), sisipkan menu internal di tengah-tengah
+# Jika login sukses, sisipkan menu internal
 if buka_menu_internal:
     daftar_tab.insert(1, "📢 Informasi & Pengumuman")
     daftar_tab.insert(2, "📅 Jadwal Pelajaran")
 
-# Selalu tampilkan tab Kelola Admin di paling ujung (terkunci jika bukan admin)
 daftar_tab.append("🛠️ Menu Kelola Admin")
 
 menu_utama = st.tabs(daftar_tab)
 
-# --- TAB 0: PROFIL SEKOLAH (SELALU AKTIF) ---
+# --- TAB 0: PROFIL SEKOLAH (DENGAN DATA UNGGULAN & EKSKUL) ---
 with menu_utama[0]:
     c.execute("SELECT nama_sekolah, visi_misi, fasilitas, alamat_kontak FROM profil WHERE id=1")
     p_nama, p_visimisi, p_fasilitas, p_kontak_sekolah = c.fetchone()
     
     st.subheader(f"✨ Selamat Datang di {p_nama}")
-    st.write("Mengenal lebih dekat lingkungan, visi misi, dan fasilitas pendidikan di sekolah kami.")
+    st.write("Mengenal lebih dekat lingkungan, visi misi, fasilitas, serta program unggulan di sekolah kami.")
     
     col_prof1, col_prof2 = st.columns(2)
     with col_prof1:
@@ -176,6 +175,58 @@ with menu_utama[0]:
         with st.container(border=True):
             st.markdown("### 🧪 Fasilitas Sekolah")
             st.write(p_fasilitas)
+
+    st.markdown("---")
+    
+    # --- SEKSI BARU: UNGGULAN & EKSTRAKURIKULER ---
+    col_unggul, col_ekskul = st.columns(2)
+    
+    with col_unggul:
+        st.markdown("### 🏆 Program & Prestasi Unggulan")
+        st.write("Mengapa memilih sekolah kami? Berikut adalah beberapa keunggulan utama kami:")
+        
+        with st.container(border=True):
+            st.markdown("⭐ **Pembiasaan Karakter & Imtaq**")
+            st.caption("Kegiatan rutin sholat berjamaah, hafalan juz amma (Tahfidz mutiara), dan penanaman budi pekerti luhur setiap pagi sebelum KBM.")
+            
+        with st.container(border=True):
+            st.markdown("⭐ **Juara Umum Olimpiade Sains & Matematika**")
+            st.caption("Meraih predikat juara dalam ajang kompetisi sains tingkat kabupaten tahun lalu, didukung oleh bimbingan belajar intensif.")
+
+        with st.container(border=True):
+            st.markdown("⭐ **Sekolah Berbasis Go-Green & Digital**")
+            st.caption("Lingkungan belajar yang asri dan pemanfaatan teknologi absensi digital pintar serta raport berbasis aplikasi (E-Rapor).")
+
+    with col_ekskul:
+        st.markdown("### 🏹 Kegiatan Ekstrakurikuler (Ekskul)")
+        st.write("Wadah bagi siswa-siswi untuk mengembangkan bakat, minat, kreativitas, dan kepemimpinan:")
+        
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            with st.container(border=True):
+                st.markdown("⚽ **Futsal & Sepakbola**")
+                st.caption("Melatih fisik, sportivitas, dan kerja sama tim dalam olahraga.")
+                
+            with st.container(border=True):
+                st.markdown("⛺ **Pramuka (Wajib)**")
+                st.caption("Membentuk pribadi yang mandiri, disiplin, dan cinta alam.")
+
+            with st.container(border=True):
+                st.markdown("🤖 **Klub Robotik & IT**")
+                st.caption("Pengenalan dasar logika pemrograman dan teknologi masa depan.")
+                
+        with col_e2:
+            with st.container(border=True):
+                st.markdown("🥋 **Seni Bela Diri Pencak Silat**")
+                st.caption("Fokus pada ketahanan fisik, mental, dan pelestarian budaya.")
+                
+            with st.container(border=True):
+                st.markdown("🎨 **Seni Musik & Seni Tari**")
+                st.caption("Mengasah kreativitas seni tradisional dan modern.")
+
+            with st.container(border=True):
+                st.markdown("🩺 **Dokter Kecil / UKS**")
+                st.caption("Edukasi kesehatan dasar dan pertolongan pertama lingkungan sekolah.")
 
 # Index pelacak tab dinamis
 index_skrg = 1
