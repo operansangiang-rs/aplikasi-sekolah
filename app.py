@@ -40,6 +40,12 @@ def init_db():
         penulis TEXT
     )
     """)
+    # Tabel Kelas Aktif (Dinamis Baru)
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS kelas_aktif (
+        nama_kelas TEXT PRIMARY KEY
+    )
+    """)
     # Tabel Jadwal Pelajaran
     conn.execute("""
     CREATE TABLE IF NOT EXISTS jadwal (
@@ -112,6 +118,12 @@ def init_db():
     """)
     
     c = conn.cursor()
+    # Data Default Kelas Aktif jika kosong
+    c.execute("SELECT COUNT(*) FROM kelas_aktif")
+    if c.fetchone()[0] == 0:
+        c.executemany("INSERT INTO kelas_aktif (nama_kelas) VALUES (?)", [
+            ('KELAS 1',), ('KELAS 2',), ('KELAS 3',), ('KELAS 4',), ('KELAS 5',), ('KELAS 6',)
+        ])
     # Data Default PPDB
     c.execute("SELECT COUNT(*) FROM ppdb")
     if c.fetchone()[0] == 0:
@@ -151,6 +163,12 @@ def init_db():
 
 conn = init_db()
 c = conn.cursor()
+
+# Ambil list kelas terupdate untuk dropdown form
+c.execute("SELECT nama_kelas FROM kelas_aktif ORDER BY nama_kelas ASC")
+list_kelas_db = [row[0] for row in c.fetchall()]
+if not list_kelas_db:
+    list_kelas_db = ["KELAS 1"] # Pengaman jika data kosong total
 
 # ==========================================
 # 🗂️ FUNCTION UNTUK MENAMPILKAN EKSKUL & UNGGULAN
@@ -234,7 +252,7 @@ st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
 if is_ortu_siswa:
     daftar_tab = ["📊 Transkrip Nilai Siswa", "📚 E-Book Pelajaran Digital", "💰 Status Pembayaran Sekolah", "📅 Jadwal Pelajaran", "📢 Informasi & Ekskul Sekolah"]
 elif is_admin or is_guru:
-    daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)", "📢 Informasi & Pengumuman", "📅 Master Jadwal Pelajaran Sekolah", "📊 Database Nilai Global", "📚 Management E-Book", "💰 Rekap Kas Keuangan SPP"]
+    daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)", "📢 Informasi & Pengumuman", "📅 Master Jadwal Pelajaran Sekolah", "📊 Database Nilai Global", "📚 Management E-Book", "💰 Rekap Kas Keuangan SPP", "🗂️ Daftar Kelas Aktif"]
 else:
     daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)"]
 
@@ -396,9 +414,13 @@ else:
         with menu_utama[6]:
             st.subheader("💰 Master Data Rekap Kas Keuangan SPP Siswa")
             st.dataframe(pd.read_sql_query("SELECT nisn AS NISN, nama_siswa AS Nama_Siswa, kelas AS Kelas, total_biaya AS Total_Tagihan, sudah_dibayar AS Sudah_Dibayar, status_bayar AS Status, keterangan_lunas AS Catatan_Lunas FROM keuangan", conn), use_container_width=True, hide_index=True)
+        with menu_utama[7]:
+            st.subheader("🗂️ Daftar Kelas Aktif Terdaftar")
+            st.caption("Berikut adalah list master kelas yang aktif digunakan di sistem penginputan data saat ini.")
+            st.dataframe(pd.read_sql_query("SELECT nama_kelas AS 'Nama Kelas Aktif' FROM kelas_aktif ORDER BY nama_kelas ASC", conn), use_container_width=True, hide_index=True)
 
 
-# --- TAB PALING UJUNG: PANEL KELOLA / MANAJEMEN DATA (DIPERBAIKI) ---
+# --- TAB PALING UJUNG: PANEL KELOLA / MANAJEMEN DATA (MASTER UPDATE) ---
 idx_terakhir = len(daftar_tab) - 1
 with menu_utama[idx_terakhir]:
     if not (is_admin or is_guru):
@@ -406,15 +428,15 @@ with menu_utama[idx_terakhir]:
     else:
         st.subheader("🛠️ Panel Input & Pembaruan Data Sekolah")
         
-        # Opsi menu input disiapkan default untuk Guru dan Admin
+        # Opsi menu input dasar untuk Guru dan Admin
         opsi_kelola = ["📝 Tulis Informasi", "📅 Atur Jadwal Pelajaran Baru", "📊 Input Nilai Siswa", "📚 Upload E-Book Baru", "💰 Update Pembayaran Siswa"]
         if is_admin:
-            opsi_kelola.extend(["⚙️ Atur PPDB", "🏫 Edit Profil"])
+            opsi_kelola.extend(["🗂️ Tambah/Hapus Kelas", "⚙️ Atur PPDB", "🏫 Edit Profil"])
             
         sub_menu = st.radio("Pilih Operasi Kelola:", opsi_kelola, horizontal=True)
         st.divider()
         
-        # 1. FORM INPUT INFORMASI (Bisa diakses Admin & Guru)
+        # 1. FORM INPUT INFORMASI
         if sub_menu == "📝 Tulis Informasi":
             with st.form("form_info_adm", clear_on_submit=True):
                 st.write("### 📝 Tulis Pengumuman / Informasi Sekolah Baru")
@@ -433,32 +455,33 @@ with menu_utama[idx_terakhir]:
                         time.sleep(1)
                         st.rerun()
 
-        # 2. FORM INPUT JADWAL (Bisa diakses Admin & Guru)
+        # 2. FORM INPUT JADWAL (Sudah pakai Dropdown Kelas Aktif)
         elif sub_menu == "📅 Atur Jadwal Pelajaran Baru":
             with st.form("form_jadwal_adm", clear_on_submit=True):
                 st.write("### 📅 Tambah/Susun Jadwal Pelajaran Baru")
                 col_j1, col_j2 = st.columns(2)
                 with col_j1:
                     j_hari = st.selectbox("Pilih Hari", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"])
-                    j_kelas = st.text_input("Untuk Kelas")
+                    # SEKARANG: Berubah jadi selectbox tinggal klik list dari database
+                    j_kelas = st.selectbox("Untuk Kelas", list_kelas_db)
                     j_mapel = st.text_input("Mata Pelajaran")
                 with col_j2:
-                    j_mulai = st.text_input("Jam Mulai")
-                    j_selesai = st.text_input("Jam Selesai")
+                    j_mulai = st.text_input("Jam Mulai (Contoh: 07:30)")
+                    j_selesai = st.text_input("Jam Selesai (Contoh: 09:00)")
                     j_guru = st.text_input("Nama Guru Pengajar")
                 
                 if st.form_submit_button("Simpan Jadwal Pelajaran"):
-                    if not (j_kelas.strip() and j_mapel.strip()):
-                        st.error("❌ Kolom Kelas dan Mata Pelajaran wajib diisi!")
+                    if not j_mapel.strip():
+                        st.error("❌ Kolom Mata Pelajaran wajib diisi!")
                     else:
                         c.execute("INSERT INTO jadwal (hari, kelas, jam_mulai, jam_selesai, mata_pelajaran, guru_pengajar) VALUES (?,?,?,?,?,?)",
-                                  (j_hari, j_kelas.strip().upper(), j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
+                                  (j_hari, j_kelas, j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
                         conn.commit()
-                        st.success("Jadwal pelajaran berhasil disimpan!")
+                        st.success(f"Jadwal pelajaran {j_mapel.upper()} untuk {j_kelas} berhasil disimpan!")
                         time.sleep(1)
                         st.rerun()
 
-        # 3. FORM INPUT NILAI (Bisa diakses Admin & Guru)
+        # 3. FORM INPUT NILAI (Sudah pakai Dropdown Kelas Aktif)
         elif sub_menu == "📊 Input Nilai Siswa":
             with st.form("form_nilai", clear_on_submit=True):
                 st.write("### 📊 Input Rekap Nilai Siswa Baru")
@@ -466,7 +489,8 @@ with menu_utama[idx_terakhir]:
                 with col_v1:
                     v_nisn = st.text_input("NISN Siswa")
                     v_nama = st.text_input("Nama Lengkap Siswa")
-                    v_kelas = st.text_input("Kelas")
+                    # SEKARANG: Memilih kelas tinggal klik, anti typo
+                    v_kelas = st.selectbox("Kelas Siswa", list_kelas_db)
                     v_mapel = st.text_input("Mata Pelajaran")
                 with col_v2:
                     v_tugas = st.number_input("Nilai Tugas", min_value=0.0, max_value=100.0, value=80.0)
@@ -480,19 +504,20 @@ with menu_utama[idx_terakhir]:
                         n_akhir = (v_tugas * 0.3) + (v_uts * 0.3) + (v_uas * 0.4)
                         ket = "TUNTAS" if n_akhir >= 75 else "REMEDIAL"
                         c.execute("INSERT INTO nilai (nisn, nama_siswa, kelas, mata_pelajaran, nilai_tugas, nilai_uts, nilai_uas, nilai_akhir, keterangan) VALUES (?,?,?,?,?,?,?,?,?)",
-                                  (v_nisn.strip(), v_nama.strip().upper(), v_kelas.strip().upper(), v_mapel.strip().upper(), v_tugas, v_uts, v_uas, n_akhir, ket))
+                                  (v_nisn.strip(), v_nama.strip().upper(), v_kelas, v_mapel.strip().upper(), v_tugas, v_uts, v_uas, n_akhir, ket))
                         conn.commit()
-                        st.success("Nilai Berhasil Disimpan!")
+                        st.success(f"Nilai {v_mapel.upper()} {v_nama.upper()} ({v_kelas}) Berhasil Disimpan!")
                         time.sleep(1)
                         st.rerun()
 
-        # 4. FORM UPLOAD E-BOOK (Bisa diakses Admin & Guru)
+        # 4. FORM UPLOAD E-BOOK (Sudah pakai Dropdown Kelas Aktif)
         elif sub_menu == "📚 Upload E-Book Baru":
             with st.form("form_upload_ebook", clear_on_submit=True):
                 st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
                 col_eb1, col_eb2 = st.columns(2)
                 with col_eb1:
-                    eb_kelas = st.text_input("Untuk Kelas")
+                    # SEKARANG: Memilih kelas dari selectbox dinamis
+                    eb_kelas = st.selectbox("Untuk Kelas", list_kelas_db)
                     eb_mapel = st.text_input("Mata Pelajaran")
                 with col_eb2:
                     eb_judul = st.text_input("Judul / Nama File E-Book")
@@ -500,17 +525,17 @@ with menu_utama[idx_terakhir]:
                 eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
                 
                 if st.form_submit_button("Simpan & Publish E-Book"):
-                    if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
+                    if not (eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
                         st.error("❌ Semua kolom wajib diisi lengkap!")
                     else:
                         c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
-                                  (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
+                                  (eb_kelas, eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
                         conn.commit()
                         st.success("E-Book berhasil diterbitkan!")
                         time.sleep(1)
                         st.rerun()
 
-        # 5. FORM UPDATE KEUANGAN (Bisa diakses Admin & Guru)
+        # 5. FORM UPDATE KEUANGAN (Sudah pakai Dropdown Kelas Aktif)
         elif sub_menu == "💰 Update Pembayaran Siswa":
             with st.form("form_update_keuangan", clear_on_submit=True):
                 st.write("### ⚙️ Edit & Sinkronisasi Kas Pembayaran Siswa")
@@ -518,7 +543,8 @@ with menu_utama[idx_terakhir]:
                 with col_k1:
                     f_nisn = st.text_input("NISN Siswa Terdaftar")
                     f_nama = st.text_input("Nama Lengkap Siswa")
-                    f_kelas = st.text_input("Kelas Siswa")
+                    # SEKARANG: Berubah jadi pilihan klik
+                    f_kelas = st.selectbox("Kelas Siswa", list_kelas_db)
                 with col_k2:
                     f_total = st.number_input("Total Kewajiban Tagihan Sekolah (Rp)", min_value=0, value=1200000, step=50000)
                     f_bayar = st.number_input("Jumlah Uang yang Sudah Dibayar (Rp)", min_value=0, value=0, step=50000)
@@ -541,13 +567,48 @@ with menu_utama[idx_terakhir]:
                                 sudah_dibayar=excluded.sudah_dibayar,
                                 status_bayar=excluded.status_bayar,
                                 keterangan_lunas=excluded.keterangan_lunas
-                        """, (f_nisn.strip(), f_nama.strip().upper(), f_kelas.strip().upper(), f_total, f_bayar, f_status, f_ket.strip()))
+                        """, (f_nisn.strip(), f_nama.strip().upper(), f_kelas, f_total, f_bayar, f_status, f_ket.strip()))
                         conn.commit()
                         st.success(f"🎉 Data keuangan siswa {f_nama.upper()} berhasil diperbarui!")
                         time.sleep(1)
                         st.rerun()
 
-        # 6. CONFIG PPDB (Hanya Admin)
+        # 6. FORM MANAJEMEN TAMBAH/HAPUS KELAS (Khusus Admin Utama)
+        elif is_admin and sub_menu == "🗂️ Tambah/Hapus Kelas":
+            st.write("### 🗂️ Manajemen Master Kelas Aktif")
+            
+            col_k_in1, col_k_in2 = st.columns(2)
+            
+            with col_k_in1:
+                with st.form("form_tambah_kelas", clear_on_submit=True):
+                    st.markdown("**➕ Tambah Kelas Baru**")
+                    input_kelas_baru = st.text_input("Nama Kelas Baru (Contoh: KELAS 1-A)", placeholder="Ketik nama kelas...")
+                    if st.form_submit_button("Simpan Kelas"):
+                        if input_kelas_baru.strip():
+                            try:
+                                c.execute("INSERT INTO kelas_aktif (nama_kelas) VALUES (?)", (input_kelas_baru.strip().upper(),))
+                                conn.commit()
+                                st.success(f"Berhasil menambahkan {input_kelas_baru.upper()}!")
+                                time.sleep(1)
+                                st.rerun()
+                            except sqlite3.IntegrityError:
+                                st.error("❌ Nama kelas sudah terdaftar!")
+                        else:
+                            st.error("❌ Nama kelas tidak boleh kosong!")
+                            
+            with col_k_in2:
+                with st.form("form_hapus_kelas"):
+                    st.markdown("**❌ Hapus Kelas Terdaftar**")
+                    kelas_dihapus = st.selectbox("Pilih Kelas Yang Ingin Dihapus", list_kelas_db)
+                    st.caption("⚠️ Peringatan: Menghapus kelas hanya menghapus opsi dari daftar pilihan dropdown.")
+                    if st.form_submit_button("Hapus Kelas", type="secondary"):
+                        c.execute("DELETE FROM kelas_aktif WHERE nama_kelas = ?", (kelas_dihapus,))
+                        conn.commit()
+                        st.success(f"Berhasil menghapus {kelas_dihapus} dari sistem!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 7. CONFIG PPDB (Hanya Admin)
         elif is_admin and sub_menu == "⚙️ Atur PPDB":
             c.execute("SELECT status, syarat, biaya, kontak FROM ppdb WHERE id=1")
             cs, csy, cb, ck = c.fetchone()
@@ -563,7 +624,7 @@ with menu_utama[idx_terakhir]:
                     time.sleep(1)
                     st.rerun()
 
-        # 7. CONFIG PROFIL (Hanya Admin)
+        # 8. CONFIG PROFIL (Hanya Admin)
         elif is_admin and sub_menu == "🏫 Edit Profil":
             c.execute("SELECT nama_sekolah, visi_misi, fasilitas, alamat_kontak FROM profil WHERE id=1")
             cn, cv, cf, ca = c.fetchone()
@@ -573,7 +634,7 @@ with menu_utama[idx_terakhir]:
                 an_fasi = st.text_area("Fasilitas", value=cf)
                 an_alam = st.text_area("Alamat", value=ca)
                 if st.form_submit_button("Update Profil"):
-                    c.execute("UPDATE profil SET nama_sekolah=?, visi_misi=?, fasilitas=?, alamat_kontak=? WHERE id=1", (an_nama.upper(), an_visi, an_fasi, an_alam))
+                    c.execute("UPDATE profil SET nama_sekolah=?, visi_misi=?, fasilitas=?, alamat_kontak=? WHERE id=1", (an_nama.upper(), an_visi, p_fasilitas, an_alam))
                     conn.commit()
                     st.success("Profil Updated!")
                     time.sleep(1)
