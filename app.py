@@ -81,11 +81,11 @@ def init_db():
             INSERT INTO ppdb (id, status, syarat, biaya, kontak)
             VALUES (1, 'DIBUKA', '1. Mengisi Formulir\n2. Fotokopi Akta Kelahiran & KK\n3. Pas Foto 3x4', 'Pendaftaran Gratis', 'Hubungi Tata Usaha (021-xxxxxx)')
         """)
-    # Isi data default Profil Sekolah jika kosong
+    # Isi data default Profil Sekolah jika kosong (Sudah diperbaiki dari typo visi_misi=)
     c.execute("SELECT COUNT(*) FROM profil")
     if c.fetchone()[0] == 0:
         c.execute("""
-            INSERT INTO profil (id, nama_sekolah, visi_misi=, fasilitas, alamat_kontak)
+            INSERT INTO profil (id, nama_sekolah, visi_misi, fasilitas, alamat_kontak)
             VALUES (1, 'SDN SINDANGSARI', 'VISI:\nUnggul dalam Prestasi, Berkarakter, dan Berbudaya Lingkungan.\n\nMISI:\n1. Menyelenggarakan pendidikan yang berkualitas.\n2. Menanamkan nilai keimanan dan ketakwaan.\n3. Mengembangkan potensi minat dan bakat siswa.', '1. Ruang Kelas Nyaman\n2. Lapangan Olahraga\n3. Perpustakaan Digital\n4. Laboratorium Komputer', 'Alamat: Jl. Raya Sindangsari\nNo. HP / WA: 08xx-xxxx-xxxx\nEmail: info@sdnsindangsari.sch.id')
         """)
     conn.commit()
@@ -137,7 +137,6 @@ menu_utama = st.tabs([
 
 # --- TAB 0: PROFIL SEKOLAH ---
 with menu_utama[0]:
-    # Ambil data profil terupdate dari database
     c.execute("SELECT nama_sekolah, visi_misi, fasilitas, alamat_kontak FROM profil WHERE id=1")
     p_nama, p_visimisi, p_fasilitas, p_kontak_sekolah = c.fetchone()
     
