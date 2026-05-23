@@ -29,7 +29,7 @@ waktu_sekarang = datetime.now(jakarta).strftime("%Y-%m-%d %H:%M:%S")
 @st.cache_resource
 def init_db():
     conn = sqlite3.connect("sekolah.db", check_same_thread=False)
-    # Buat tabel informasi/pengumuman jika belum ada
+    # Buat tabel informasi/pengumuman
     conn.execute("""
     CREATE TABLE IF NOT EXISTS informasi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,7 +40,7 @@ def init_db():
         penulis TEXT
     )
     """)
-    # Buat tabel jadwal pelajaran jika belum ada
+    # Buat tabel jadwal pelajaran
     conn.execute("""
     CREATE TABLE IF NOT EXISTS jadwal (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +52,25 @@ def init_db():
         guru_pengajar TEXT
     )
     """)
-    conn.commit()
+    # Buat tabel pengaturan PPDB / Pendaftaran Baru
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS ppdb (
+        id INTEGER PRIMARY KEY,
+        status TEXT,
+        syarat TEXT,
+        biaya TEXT,
+        kontak TEXT
+    )
+    """)
+    # Masukkan data default PPDB jika tabel masih kosong
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM ppdb")
+    if c.fetchone()[0] == 0:
+        c.execute("""
+            INSERT INTO ppdb (id, status, syarat, biaya, kontak)
+            VALUES (1, 'DIBUKA', '1. Mengisi Formulir\n2. Fotokopi Akta Kelahiran & KK\n3. Pas Foto 3x4', 'Pendaftaran Gratis', 'Hubungi Tata Usaha (021-xxxxxx)')
+        """)
+        conn.commit()
     return conn
 
 conn = init_db()
@@ -72,7 +90,7 @@ is_guru = False
 
 if status_login == "🛠️ ADMIN UTAMA":
     password = st.sidebar.text_input("Masukkan Password Admin", type="password")
-    if password == "adminsekolah2026":  # Password admin utama aplikasi
+    if password == "adminsekolah2026":  
         st.sidebar.success("🔓 Mode Admin Aktif!")
         is_admin = True
     else:
@@ -83,7 +101,7 @@ elif status_login == "👨‍🏫 GURU / STAFF":
     st.sidebar.info("Akses Guru: Anda dapat melihat seluruh data dan menginput presensi/catatan harian.")
     is_guru = True
 else:
-    st.sidebar.info("Akses Orang Tua/Umum: Hanya dapat melihat Informasi Sekolah dan Jadwal Pelajaran.")
+    st.sidebar.info("Akses Orang Tua/Umum: Hanya dapat melihat Informasi, Jadwal, dan Info Pendaftaran PPDB.")
 
 st.sidebar.divider()
 st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
@@ -91,14 +109,18 @@ st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
 # ==========================================
 # 📱 STRUKTUR MENU UTAMA (TABS)
 # ==========================================
-menu_utama = st.tabs(["📢 Informasi & Pengumuman", "📅 Jadwal Pelajaran", "🛠️ Menu Kelola Admin"])
+menu_utama = st.tabs([
+    "📢 Informasi & Pengumuman", 
+    "📅 Jadwal Pelajaran", 
+    "📝 Pendaftaran Siswa Baru (PPDB)", 
+    "🛠️ Menu Kelola Admin"
+])
 
 # --- TAB 1: INFORMASI SEKOLAH ---
 with menu_utama[0]:
     st.subheader("📢 Informasi & Pengumuman Sekolah")
     st.write("Halaman ini menampilkan pengumuman resmi dari pihak sekolah untuk orang tua murid dan guru.")
     
-    # Ambil data informasi dari database
     df_info = pd.read_sql_query("SELECT * FROM informasi ORDER BY tanggal DESC", conn)
     
     if df_info.empty:
@@ -114,13 +136,11 @@ with menu_utama[0]:
 with menu_utama[1]:
     st.subheader("📅 Jadwal Pelajaran Interaktif")
     
-    # Ambil semua data jadwal pelajaran
     df_jadwal = pd.read_sql_query("SELECT * FROM jadwal ORDER BY hari, jam_mulai ASC", conn)
     
     if df_jadwal.empty:
         st.info("Jadwal pelajaran belum dimasukkan oleh Admin.")
     else:
-        # Filter interaktif untuk memudahkan pencarian kelas atau hari
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             list_hari = ["Semua Hari", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"]
@@ -129,7 +149,6 @@ with menu_utama[1]:
             list_kelas = ["Semua Kelas"] + sorted(list(df_jadwal['kelas'].unique()))
             filter_kelas = st.selectbox("Filter Kelas", list_kelas)
             
-        # Logika pemfilteran data dataframe
         query_filter = df_jadwal.copy()
         if filter_hari != "Semua Hari":
             query_filter = query_filter[query_filter['hari'] == filter_hari]
@@ -141,17 +160,46 @@ with menu_utama[1]:
         else:
             st.dataframe(query_filter, use_container_width=True, hide_index=True)
 
-# --- TAB 3: KELOLA DATA (HANYA UNTUK ADMIN) ---
+# --- TAB 3: INFORMASI PENDAFTARAN BARU (PPDB) ---
 with menu_utama[2]:
+    st.subheader("📝 Informasi Penerimaan Peserta Didik Baru (PPDB)")
+    st.write("Informasi resmi bagi calon orang tua murid yang ingin mendaftarkan putra-putrinya.")
+    
+    # Ambil data PPDB terupdate dari database
+    c.execute("SELECT status, syarat, biaya, kontak FROM ppdb WHERE id=1")
+    p_status, p_syarat, p_biaya, p_kontak = c.fetchone()
+    
+    # Indikator status pendaftaran
+    if p_status == "DIBUKA":
+        st.success("🟢 STATUS PPDB: **PENDAFTARAN SEDANG DIBUKA**")
+    else:
+        st.error("🔴 STATUS PPDB: **PENDAFTARAN SUDAH DITUTUP**")
+        
+    col_ppdb1, col_ppdb2 = st.columns(2)
+    with col_ppdb1:
+        with st.container(border=True):
+            st.markdown("### 📋 Persyaratan Dokumen")
+            st.write(p_syarat)
+    with col_ppdb2:
+        with st.container(border=True):
+            st.markdown("### 💰 Informasi Biaya & Investasi Pendidikan")
+            st.write(p_biaya)
+            
+    with st.container(border=True):
+        st.markdown("### 📞 Alur Pendaftaran & Kontak Informasi")
+        st.info(p_kontak)
+
+# --- TAB 4: KELOLA DATA (HANYA UNTUK ADMIN) ---
+with menu_utama[3]:
     if not is_admin:
         st.warning("🔒 **Akses Terbatas!** Menu Kelola Admin ini dikunci. Silakan pilih status login sebagai **ADMIN UTAMA** di sidebar dan masukkan password yang benar untuk membukanya.")
     else:
         st.subheader("🛠️ Dashboard Manajemen Admin")
-        st.markdown("Selamat datang di panel kontrol sekolah. Silakan pilih menu di bawah ini untuk menambah atau mengubah informasi.")
+        st.markdown("Selamat datang di panel kontrol sekolah. Silakan pilih menu di bawah ini untuk menambah atau mengubah data aplikasi secara global.")
         
         sub_menu = st.radio(
             "Pilih Objek Kelola:", 
-            ["📝 Tulis Informasi Baru", "📅 Atur Jadwal Pelajaran"], 
+            ["📝 Tulis Informasi Baru", "📅 Atur Jadwal Pelajaran", "⚙️ Atur Info Pendaftaran (PPDB)"], 
             horizontal=True
         )
         st.divider()
@@ -161,9 +209,9 @@ with menu_utama[2]:
             with st.form("form_tambah_info", clear_on_submit=True):
                 st.write("### Buat Pengumuman Baru")
                 t_judul = st.text_input("Judul Informasi / Pengumuman")
-                t_kat = st.selectbox("Kategori", ["Akademik", "Kegiatan Sekolah", "Keuangan", "Umum"])
+                t_kat = st.selectbox("Kategori", ["Akademik", "Kegiatan Sekolah", "Keuangan", "PPDB / Kelulusan", "Umum"])
                 t_konten = st.text_area("Isi Konten Informasi", height=150)
-                t_penulis = st.text_input("Nama Penulis/Bagian (Contoh: Humas / Kepala Sekolah)")
+                t_penulis = st.text_input("Nama Penulis/Bagian (Contoh: Panitia PPDB / Humas)")
                 
                 submit_info = st.form_submit_button("Publish Pengumuman")
                 
@@ -208,6 +256,33 @@ with menu_utama[2]:
                         st.success("🎉 Jadwal pelajaran berhasil disimpan ke sistem!")
                         time.sleep(1)
                         st.rerun()
+
+        # --- FORM EDIT CONFIG PPDB / PENDAFTARAN BARU ---
+        elif sub_menu == "⚙️ Atur Info Pendaftaran (PPDB)":
+            st.write("### ⚙️ Edit Halaman Informasi Pendaftaran Siswa Baru")
+            
+            # Ambil data lama agar admin tinggal edit
+            c.execute("SELECT status, syarat, biaya, kontak FROM ppdb WHERE id=1")
+            curr_status, curr_syarat, curr_biaya, curr_kontak = c.fetchone()
+            
+            with st.form("form_edit_ppdb"):
+                adm_status = st.selectbox("Status Pembukaan PPDB", ["DIBUKA", "DITUTUP"], index=0 if curr_status == "DIBUKA" else 1)
+                adm_syarat = st.text_area("Syarat Pendaftaran (Bisa gunakan poin-poin)", value=curr_syarat, height=150)
+                adm_biaya = st.text_area("Rincian Biaya Masuk", value=curr_biaya, height=150)
+                adm_kontak = st.text_area("Alur Pendaftaran / Nomor HP Panitia PPDB", value=curr_kontak, height=120)
+                
+                submit_ppdb = st.form_submit_button("Simpan Perubahan PPDB")
+                
+                if submit_ppdb:
+                    c.execute("""
+                        UPDATE ppdb 
+                        SET status=?, syarat=?, biaya=?, kontak=? 
+                        WHERE id=1
+                    """, (adm_status, adm_syarat.strip(), adm_biaya.strip(), adm_kontak.strip()))
+                    conn.commit()
+                    st.success("🎉 Informasi PPDB berhasil diperbarui secara global!")
+                    time.sleep(1)
+                    st.rerun()
 
 # ==========================================
 # FOOTER APLIKASI
