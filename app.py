@@ -202,6 +202,16 @@ if status_login == "👨‍👩‍👧 ORANG TUA / SISWA":
         if pass_ortu != "":
             st.sidebar.error("❌ Password Salah!")
 
+elif status_login == "👨‍🏫 GURU / STAFF":
+    pass_guru = st.sidebar.text_input("Masukkan Password Guru", type="password")
+    if pass_guru == "3333":
+        st.sidebar.success("🔓 Akses Guru Aktif!")
+        is_guru = True
+        akses_sukses = True
+    else:
+        if pass_guru != "":
+            st.sidebar.error("❌ Password Salah!")
+
 elif status_login == "🛠️ ADMIN UTAMA":
     password = st.sidebar.text_input("Masukkan Password Admin", type="password")
     if password == "1234":
@@ -211,11 +221,6 @@ elif status_login == "🛠️ ADMIN UTAMA":
     else:
         if password != "":
             st.sidebar.error("❌ Password Salah!")
-
-elif status_login == "👨‍🏫 GURU / STAFF":
-    st.sidebar.info("Akses Guru/Staff aktif otomatis.")
-    is_guru = True
-    akses_sukses = True
 
 else:
     st.sidebar.info("Silakan ganti status login jika Anda adalah Wali Murid, Guru, atau Admin.")
@@ -401,6 +406,7 @@ with menu_utama[idx_terakhir]:
     else:
         st.subheader("🛠️ Panel Input & Pembaruan Data Sekolah")
         
+        # Opsi menu input disesuaikan untuk Guru dan Admin
         opsi_kelola = ["💰 Update Pembayaran Siswa", "📅 Atur Jadwal Pelajaran Baru", "📊 Input Nilai Siswa", "📚 Upload E-Book Baru", "📝 Tulis Informasi"]
         if is_admin:
             opsi_kelola.extend(["⚙️ Atur PPDB", "🏫 Edit Profil"])
@@ -469,14 +475,19 @@ with menu_utama[idx_terakhir]:
 
         # 3. FORM INPUT NILAI
         elif sub_menu == "📊 Input Nilai Siswa":
-            with st.form("form_nilai"):
-                v_nisn = st.text_input("NISN Siswa")
-                v_nama = st.text_input("Nama Lengkap Siswa")
-                v_kelas = st.text_input("Kelas")
-                v_mapel = st.text_input("Mata Pelajaran")
-                v_tugas = st.number_input("Nilai Tugas", min_value=0.0, max_value=100.0, value=80.0)
-                v_uts = st.number_input("Nilai UTS", min_value=0.0, max_value=100.0, value=80.0)
-                v_uas = st.number_input("Nilai UAS", min_value=0.0, max_value=100.0, value=80.0)
+            with st.form("form_nilai", clear_on_submit=True):
+                st.write("### 📊 Input Rekap Nilai Siswa Baru")
+                col_v1, col_v2 = st.columns(2)
+                with col_v1:
+                    v_nisn = st.text_input("NISN Siswa")
+                    v_nama = st.text_input("Nama Lengkap Siswa")
+                    v_kelas = st.text_input("Kelas")
+                    v_mapel = st.text_input("Mata Pelajaran")
+                with col_v2:
+                    v_tugas = st.number_input("Nilai Tugas", min_value=0.0, max_value=100.0, value=80.0)
+                    v_uts = st.number_input("Nilai UTS", min_value=0.0, max_value=100.0, value=80.0)
+                    v_uas = st.number_input("Nilai UAS", min_value=0.0, max_value=100.0, value=80.0)
+                
                 if st.form_submit_button("Simpan & Hitung"):
                     n_akhir = (v_tugas * 0.3) + (v_uts * 0.3) + (v_uas * 0.4)
                     ket = "TUNTAS" if n_akhir >= 75 else "REMEDIAL"
@@ -487,7 +498,7 @@ with menu_utama[idx_terakhir]:
                     time.sleep(1)
                     st.rerun()
 
-        # 4. FORM UPLOAD E-BOOK BARU (SUDAH DIPERBAIKI INDENTASINYA)
+        # 4. FORM UPLOAD E-BOOK BARU
         elif sub_menu == "📚 Upload E-Book Baru":
             with st.form("form_upload_ebook", clear_on_submit=True):
                 st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
@@ -499,6 +510,7 @@ with menu_utama[idx_terakhir]:
                     eb_judul = st.text_input("Judul / Nama File E-Book")
                     eb_link = st.text_input("Tautan / Link Download E-Book")
                 eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
+                
                 if st.form_submit_button("Simpan & Publish E-Book"):
                     if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
                         st.error("❌ Semua kolom wajib diisi lengkap!")
@@ -512,17 +524,22 @@ with menu_utama[idx_terakhir]:
 
         # 5. FORM INPUT INFORMASI 
         elif sub_menu == "📝 Tulis Informasi":
-            with st.form("form_info_adm"):
+            with st.form("form_info_adm", clear_on_submit=True):
+                st.write("### 📝 Tulis Pengumuman / Informasi Sekolah Baru")
                 t_judul = st.text_input("Judul Informasi")
                 t_kat = st.selectbox("Kategori", ["Akademik", "Kegiatan Sekolah", "Umum"])
-                t_konten = st.text_area("Konten")
-                t_penulis = "STAFF" if is_guru else "ADMIN"
-                if st.form_submit_button("Publish"):
-                    c.execute("INSERT INTO informasi (tanggal, judul, konten, kategori, penulis) VALUES (?,?,?,?,?)", (waktu_sekarang, t_judul, t_konten, t_kat, t_penulis))
-                    conn.commit()
-                    st.success("Sukses!")
-                    time.sleep(1)
-                    st.rerun()
+                t_konten = st.text_area("Konten Berita")
+                t_penulis = "STAFF / GURU" if is_guru else "ADMIN"
+                
+                if st.form_submit_button("Publish Informasi"):
+                    if not (t_judul.strip() and t_konten.strip()):
+                        st.error("❌ Judul dan Konten tidak boleh kosong!")
+                    else:
+                        c.execute("INSERT INTO informasi (tanggal, judul, konten, kategori, penulis) VALUES (?,?,?,?,?)", (waktu_sekarang, t_judul, t_konten, t_kat, t_penulis))
+                        conn.commit()
+                        st.success("Sukses mempublikasikan informasi terbaru!")
+                        time.sleep(1)
+                        st.rerun()
 
         # 6. CONFIG PPDB (Hanya Admin)
         elif is_admin and sub_menu == "⚙️ Atur PPDB":
