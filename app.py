@@ -323,7 +323,7 @@ if is_ortu_siswa:
                 query_filter = query_filter[query_filter['kelas'] == filter_kelas]
             st.dataframe(query_filter, use_container_width=True, hide_index=True)
 
-    # 5. TAB INFORMASI (DI SINI SAYA MASUKKAN KEMBALI KARTU PRESTASI & EKSKUL UNTUK SISWA)
+    # 5. TAB INFORMASI
     with menu_utama[4]:
         st.subheader("📢 Informasi & Pengumuman Internal Sekolah")
         df_info = pd.read_sql_query("SELECT * FROM informasi ORDER BY tanggal DESC", conn)
@@ -487,7 +487,7 @@ with menu_utama[idx_terakhir]:
                     time.sleep(1)
                     st.rerun()
 
-        # 4. FORM UPLOAD E-BOOK BARU
+        # 4. FORM UPLOAD E-BOOK BARU (SUDAH DIPERBAIKI INDENTASINYA)
         elif sub_menu == "📚 Upload E-Book Baru":
             with st.form("form_upload_ebook", clear_on_submit=True):
                 st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
@@ -500,8 +500,11 @@ with menu_utama[idx_terakhir]:
                     eb_link = st.text_input("Tautan / Link Download E-Book")
                 eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
                 if st.form_submit_button("Simpan & Publish E-Book"):
-                    c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
-                              (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
+                    if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
+                        st.error("❌ Semua kolom wajib diisi lengkap!")
+                    else:
+                        c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
+                                  (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
                         conn.commit()
                         st.success("E-Book berhasil diterbitkan!")
                         time.sleep(1)
