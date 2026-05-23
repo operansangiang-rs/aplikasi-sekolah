@@ -52,7 +52,7 @@ def init_db():
         guru_pengajar TEXT
     )
     """)
-    # Buat tabel pengaturan PPDB / Pendaftaran Baru
+    # Buat tabel pengaturan PPDB
     conn.execute("""
     CREATE TABLE IF NOT EXISTS ppdb (
         id INTEGER PRIMARY KEY,
@@ -62,15 +62,33 @@ def init_db():
         kontak TEXT
     )
     """)
-    # Masukkan data default PPDB jika tabel masih kosong
+    # Buat tabel profil sekolah
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS profil (
+        id INTEGER PRIMARY KEY,
+        nama_sekolah TEXT,
+        visi_misi TEXT,
+        fasilitas TEXT,
+        alamat_kontak TEXT
+    )
+    """)
+    
     c = conn.cursor()
+    # Isi data default PPDB jika kosong
     c.execute("SELECT COUNT(*) FROM ppdb")
     if c.fetchone()[0] == 0:
         c.execute("""
             INSERT INTO ppdb (id, status, syarat, biaya, kontak)
             VALUES (1, 'DIBUKA', '1. Mengisi Formulir\n2. Fotokopi Akta Kelahiran & KK\n3. Pas Foto 3x4', 'Pendaftaran Gratis', 'Hubungi Tata Usaha (021-xxxxxx)')
         """)
-        conn.commit()
+    # Isi data default Profil Sekolah jika kosong
+    c.execute("SELECT COUNT(*) FROM profil")
+    if c.fetchone()[0] == 0:
+        c.execute("""
+            INSERT INTO profil (id, nama_sekolah, visi_misi=, fasilitas, alamat_kontak)
+            VALUES (1, 'SDN SINDANGSARI', 'VISI:\nUnggul dalam Prestasi, Berkarakter, dan Berbudaya Lingkungan.\n\nMISI:\n1. Menyelenggarakan pendidikan yang berkualitas.\n2. Menanamkan nilai keimanan dan ketakwaan.\n3. Mengembangkan potensi minat dan bakat siswa.', '1. Ruang Kelas Nyaman\n2. Lapangan Olahraga\n3. Perpustakaan Digital\n4. Laboratorium Komputer', 'Alamat: Jl. Raya Sindangsari\nNo. HP / WA: 08xx-xxxx-xxxx\nEmail: info@sdnsindangsari.sch.id')
+        """)
+    conn.commit()
     return conn
 
 conn = init_db()
@@ -101,7 +119,7 @@ elif status_login == "👨‍🏫 GURU / STAFF":
     st.sidebar.info("Akses Guru: Anda dapat melihat seluruh data dan menginput presensi/catatan harian.")
     is_guru = True
 else:
-    st.sidebar.info("Akses Orang Tua/Umum: Hanya dapat melihat Informasi, Jadwal, dan Info Pendaftaran PPDB.")
+    st.sidebar.info("Akses Orang Tua/Umum: Hanya dapat melihat Informasi, Jadwal, Profil, dan Info Pendaftaran PPDB.")
 
 st.sidebar.divider()
 st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
@@ -110,14 +128,39 @@ st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
 # 📱 STRUKTUR MENU UTAMA (TABS)
 # ==========================================
 menu_utama = st.tabs([
+    "🏫 Profil Sekolah",
     "📢 Informasi & Pengumuman", 
     "📅 Jadwal Pelajaran", 
     "📝 Pendaftaran Siswa Baru (PPDB)", 
     "🛠️ Menu Kelola Admin"
 ])
 
-# --- TAB 1: INFORMASI SEKOLAH ---
+# --- TAB 0: PROFIL SEKOLAH ---
 with menu_utama[0]:
+    # Ambil data profil terupdate dari database
+    c.execute("SELECT nama_sekolah, visi_misi, fasilitas, alamat_kontak FROM profil WHERE id=1")
+    p_nama, p_visimisi, p_fasilitas, p_kontak_sekolah = c.fetchone()
+    
+    st.subheader(f"✨ Selamat Datang di {p_nama}")
+    st.write("Mengenal lebih dekat lingkungan, visi misi, dan fasilitas pendidikan di sekolah kami.")
+    
+    col_prof1, col_prof2 = st.columns(2)
+    with col_prof1:
+        with st.container(border=True):
+            st.markdown("### 🎯 Visi & Misi")
+            st.write(p_visimisi)
+            
+        with st.container(border=True):
+            st.markdown("### 📞 Hubungi & Alamat Kami")
+            st.info(p_kontak_sekolah)
+            
+    with col_prof2:
+        with st.container(border=True):
+            st.markdown("### 🧪 Fasilitas Sekolah")
+            st.write(p_fasilitas)
+
+# --- TAB 1: INFORMASI SEKOLAH ---
+with menu_utama[1]:
     st.subheader("📢 Informasi & Pengumuman Sekolah")
     st.write("Halaman ini menampilkan pengumuman resmi dari pihak sekolah untuk orang tua murid dan guru.")
     
@@ -133,7 +176,7 @@ with menu_utama[0]:
                 st.markdown(f"{r['konten']}")
 
 # --- TAB 2: JADWAL PELAJARAN ---
-with menu_utama[1]:
+with menu_utama[2]:
     st.subheader("📅 Jadwal Pelajaran Interaktif")
     
     df_jadwal = pd.read_sql_query("SELECT * FROM jadwal ORDER BY hari, jam_mulai ASC", conn)
@@ -161,15 +204,12 @@ with menu_utama[1]:
             st.dataframe(query_filter, use_container_width=True, hide_index=True)
 
 # --- TAB 3: INFORMASI PENDAFTARAN BARU (PPDB) ---
-with menu_utama[2]:
+with menu_utama[3]:
     st.subheader("📝 Informasi Penerimaan Peserta Didik Baru (PPDB)")
-    st.write("Informasi resmi bagi calon orang tua murid yang ingin mendaftarkan putra-putrinya.")
     
-    # Ambil data PPDB terupdate dari database
     c.execute("SELECT status, syarat, biaya, kontak FROM ppdb WHERE id=1")
     p_status, p_syarat, p_biaya, p_kontak = c.fetchone()
     
-    # Indikator status pendaftaran
     if p_status == "DIBUKA":
         st.success("🟢 STATUS PPDB: **PENDAFTARAN SEDANG DIBUKA**")
     else:
@@ -190,7 +230,7 @@ with menu_utama[2]:
         st.info(p_kontak)
 
 # --- TAB 4: KELOLA DATA (HANYA UNTUK ADMIN) ---
-with menu_utama[3]:
+with menu_utama[4]:
     if not is_admin:
         st.warning("🔒 **Akses Terbatas!** Menu Kelola Admin ini dikunci. Silakan pilih status login sebagai **ADMIN UTAMA** di sidebar dan masukkan password yang benar untuk membukanya.")
     else:
@@ -199,7 +239,7 @@ with menu_utama[3]:
         
         sub_menu = st.radio(
             "Pilih Objek Kelola:", 
-            ["📝 Tulis Informasi Baru", "📅 Atur Jadwal Pelajaran", "⚙️ Atur Info Pendaftaran (PPDB)"], 
+            ["📝 Tulis Informasi Baru", "📅 Atur Jadwal Pelajaran", "⚙️ Atur Info Pendaftaran (PPDB)", "🏫 Edit Profil Sekolah"], 
             horizontal=True
         )
         st.divider()
@@ -257,32 +297,56 @@ with menu_utama[3]:
                         time.sleep(1)
                         st.rerun()
 
-        # --- FORM EDIT CONFIG PPDB / PENDAFTARAN BARU ---
+        # --- FORM EDIT CONFIG PPDB ---
         elif sub_menu == "⚙️ Atur Info Pendaftaran (PPDB)":
             st.write("### ⚙️ Edit Halaman Informasi Pendaftaran Siswa Baru")
-            
-            # Ambil data lama agar admin tinggal edit
             c.execute("SELECT status, syarat, biaya, kontak FROM ppdb WHERE id=1")
             curr_status, curr_syarat, curr_biaya, curr_kontak = c.fetchone()
             
             with st.form("form_edit_ppdb"):
                 adm_status = st.selectbox("Status Pembukaan PPDB", ["DIBUKA", "DITUTUP"], index=0 if curr_status == "DIBUKA" else 1)
-                adm_syarat = st.text_area("Syarat Pendaftaran (Bisa gunakan poin-poin)", value=curr_syarat, height=150)
+                adm_syarat = st.text_area("Syarat Pendaftaran", value=curr_syarat, height=150)
                 adm_biaya = st.text_area("Rincian Biaya Masuk", value=curr_biaya, height=150)
-                adm_kontak = st.text_area("Alur Pendaftaran / Nomor HP Panitia PPDB", value=curr_kontak, height=120)
+                adm_kontak = st.text_area("Alur Pendaftaran / Kontak Panitia", value=curr_kontak, height=120)
                 
                 submit_ppdb = st.form_submit_button("Simpan Perubahan PPDB")
                 
                 if submit_ppdb:
                     c.execute("""
-                        UPDATE ppdb 
-                        SET status=?, syarat=?, biaya=?, kontak=? 
-                        WHERE id=1
+                        UPDATE ppdb SET status=?, syarat=?, biaya=?, kontak=? WHERE id=1
                     """, (adm_status, adm_syarat.strip(), adm_biaya.strip(), adm_kontak.strip()))
                     conn.commit()
                     st.success("🎉 Informasi PPDB berhasil diperbarui secara global!")
                     time.sleep(1)
                     st.rerun()
+
+        # --- FORM EDIT PROFIL SEKOLAH ---
+        elif sub_menu == "🏫 Edit Profil Sekolah":
+            st.write("### 🏫 Edit Ruang Informasi Profil Sekolah")
+            c.execute("SELECT nama_sekolah, visi_misi, fasilitas, alamat_kontak FROM profil WHERE id=1")
+            curr_nama, curr_visimisi, curr_fasilitas, curr_alamat = c.fetchone()
+            
+            with st.form("form_edit_profil"):
+                adm_nama = st.text_input("Nama Resmi Sekolah", value=curr_nama)
+                adm_visimisi = st.text_area("Visi & Misi Sekolah", value=curr_visimisi, height=150)
+                adm_fasilitas = st.text_area("Fasilitas Unggulan Sekolah", value=curr_fasilitas, height=150)
+                adm_alamat = st.text_area("Alamat Lengkap & Kontak Resmi", value=curr_alamat, height=120)
+                
+                submit_prof = st.form_submit_button("Simpan Pembaruan Profil")
+                
+                if submit_prof:
+                    if not adm_nama.strip():
+                        st.error("❌ Nama sekolah tidak boleh dikosongkan!")
+                    else:
+                        c.execute("""
+                            UPDATE profil 
+                            SET nama_sekolah=?, visi_misi=?, fasilitas=?, alamat_kontak=? 
+                            WHERE id=1
+                        """, (adm_nama.strip().upper(), adm_visimisi.strip(), adm_fasilitas.strip(), adm_alamat.strip()))
+                        conn.commit()
+                        st.success("🎉 Profil sekolah berhasil diperbarui secara global!")
+                        time.sleep(1)
+                        st.rerun()
 
 # ==========================================
 # FOOTER APLIKASI
