@@ -238,7 +238,7 @@ elif is_admin or is_guru:
 else:
     daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)"]
 
-daftar_tab.append("🛠️ Menu Kelola Admin/Staff")
+daftar_tab.append("🛠️ Menu Kelola Data")
 menu_utama = st.tabs(daftar_tab)
 
 
@@ -398,7 +398,7 @@ else:
             st.dataframe(pd.read_sql_query("SELECT nisn AS NISN, nama_siswa AS Nama_Siswa, kelas AS Kelas, total_biaya AS Total_Tagihan, sudah_dibayar AS Sudah_Dibayar, status_bayar AS Status, keterangan_lunas AS Catatan_Lunas FROM keuangan", conn), use_container_width=True, hide_index=True)
 
 
-# --- TAB PALING UJUNG: PANEL KELOLA / MANAJEMEN DATA ---
+# --- TAB PALING UJUNG: PANEL KELOLA / MANAJEMEN DATA (DIPERBAIKI) ---
 idx_terakhir = len(daftar_tab) - 1
 with menu_utama[idx_terakhir]:
     if not (is_admin or is_guru):
@@ -406,16 +406,112 @@ with menu_utama[idx_terakhir]:
     else:
         st.subheader("🛠️ Panel Input & Pembaruan Data Sekolah")
         
-        # Opsi menu input disesuaikan untuk Guru dan Admin
-        opsi_kelola = ["💰 Update Pembayaran Siswa", "📅 Atur Jadwal Pelajaran Baru", "📊 Input Nilai Siswa", "📚 Upload E-Book Baru", "📝 Tulis Informasi"]
+        # Opsi menu input disiapkan default untuk Guru dan Admin
+        opsi_kelola = ["📝 Tulis Informasi", "📅 Atur Jadwal Pelajaran Baru", "📊 Input Nilai Siswa", "📚 Upload E-Book Baru", "💰 Update Pembayaran Siswa"]
         if is_admin:
             opsi_kelola.extend(["⚙️ Atur PPDB", "🏫 Edit Profil"])
             
-        sub_menu = st.radio("Pilih Operasi:", opsi_kelola, horizontal=True)
+        sub_menu = st.radio("Pilih Operasi Kelola:", opsi_kelola, horizontal=True)
         st.divider()
         
-        # 1. FORM EDIT & UPDATE KEUANGAN
-        if sub_menu == "💰 Update Pembayaran Siswa":
+        # 1. FORM INPUT INFORMASI (Bisa diakses Admin & Guru)
+        if sub_menu == "📝 Tulis Informasi":
+            with st.form("form_info_adm", clear_on_submit=True):
+                st.write("### 📝 Tulis Pengumuman / Informasi Sekolah Baru")
+                t_judul = st.text_input("Judul Informasi")
+                t_kat = st.selectbox("Kategori", ["Akademik", "Kegiatan Sekolah", "Umum"])
+                t_konten = st.text_area("Konten Berita")
+                t_penulis = "STAFF / GURU" if is_guru else "ADMIN"
+                
+                if st.form_submit_button("Publish Informasi"):
+                    if not (t_judul.strip() and t_konten.strip()):
+                        st.error("❌ Judul dan Konten tidak boleh kosong!")
+                    else:
+                        c.execute("INSERT INTO informasi (tanggal, judul, konten, kategori, penulis) VALUES (?,?,?,?,?)", (waktu_sekarang, t_judul, t_konten, t_kat, t_penulis))
+                        conn.commit()
+                        st.success("Sukses mempublikasikan informasi terbaru!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 2. FORM INPUT JADWAL (Bisa diakses Admin & Guru)
+        elif sub_menu == "📅 Atur Jadwal Pelajaran Baru":
+            with st.form("form_jadwal_adm", clear_on_submit=True):
+                st.write("### 📅 Tambah/Susun Jadwal Pelajaran Baru")
+                col_j1, col_j2 = st.columns(2)
+                with col_j1:
+                    j_hari = st.selectbox("Pilih Hari", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"])
+                    j_kelas = st.text_input("Untuk Kelas")
+                    j_mapel = st.text_input("Mata Pelajaran")
+                with col_j2:
+                    j_mulai = st.text_input("Jam Mulai")
+                    j_selesai = st.text_input("Jam Selesai")
+                    j_guru = st.text_input("Nama Guru Pengajar")
+                
+                if st.form_submit_button("Simpan Jadwal Pelajaran"):
+                    if not (j_kelas.strip() and j_mapel.strip()):
+                        st.error("❌ Kolom Kelas dan Mata Pelajaran wajib diisi!")
+                    else:
+                        c.execute("INSERT INTO jadwal (hari, kelas, jam_mulai, jam_selesai, mata_pelajaran, guru_pengajar) VALUES (?,?,?,?,?,?)",
+                                  (j_hari, j_kelas.strip().upper(), j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
+                        conn.commit()
+                        st.success("Jadwal pelajaran berhasil disimpan!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 3. FORM INPUT NILAI (Bisa diakses Admin & Guru)
+        elif sub_menu == "📊 Input Nilai Siswa":
+            with st.form("form_nilai", clear_on_submit=True):
+                st.write("### 📊 Input Rekap Nilai Siswa Baru")
+                col_v1, col_v2 = st.columns(2)
+                with col_v1:
+                    v_nisn = st.text_input("NISN Siswa")
+                    v_nama = st.text_input("Nama Lengkap Siswa")
+                    v_kelas = st.text_input("Kelas")
+                    v_mapel = st.text_input("Mata Pelajaran")
+                with col_v2:
+                    v_tugas = st.number_input("Nilai Tugas", min_value=0.0, max_value=100.0, value=80.0)
+                    v_uts = st.number_input("Nilai UTS", min_value=0.0, max_value=100.0, value=80.0)
+                    v_uas = st.number_input("Nilai UAS", min_value=0.0, max_value=100.0, value=80.0)
+                
+                if st.form_submit_button("Simpan & Hitung"):
+                    if not (v_nisn.strip() and v_nama.strip() and v_mapel.strip()):
+                        st.error("❌ NISN, Nama, dan Mapel wajib diisi!")
+                    else:
+                        n_akhir = (v_tugas * 0.3) + (v_uts * 0.3) + (v_uas * 0.4)
+                        ket = "TUNTAS" if n_akhir >= 75 else "REMEDIAL"
+                        c.execute("INSERT INTO nilai (nisn, nama_siswa, kelas, mata_pelajaran, nilai_tugas, nilai_uts, nilai_uas, nilai_akhir, keterangan) VALUES (?,?,?,?,?,?,?,?,?)",
+                                  (v_nisn.strip(), v_nama.strip().upper(), v_kelas.strip().upper(), v_mapel.strip().upper(), v_tugas, v_uts, v_uas, n_akhir, ket))
+                        conn.commit()
+                        st.success("Nilai Berhasil Disimpan!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 4. FORM UPLOAD E-BOOK (Bisa diakses Admin & Guru)
+        elif sub_menu == "📚 Upload E-Book Baru":
+            with st.form("form_upload_ebook", clear_on_submit=True):
+                st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
+                col_eb1, col_eb2 = st.columns(2)
+                with col_eb1:
+                    eb_kelas = st.text_input("Untuk Kelas")
+                    eb_mapel = st.text_input("Mata Pelajaran")
+                with col_eb2:
+                    eb_judul = st.text_input("Judul / Nama File E-Book")
+                    eb_link = st.text_input("Tautan / Link Download E-Book")
+                eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
+                
+                if st.form_submit_button("Simpan & Publish E-Book"):
+                    if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
+                        st.error("❌ Semua kolom wajib diisi lengkap!")
+                    else:
+                        c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
+                                  (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
+                        conn.commit()
+                        st.success("E-Book berhasil diterbitkan!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # 5. FORM UPDATE KEUANGAN (Bisa diakses Admin & Guru)
+        elif sub_menu == "💰 Update Pembayaran Siswa":
             with st.form("form_update_keuangan", clear_on_submit=True):
                 st.write("### ⚙️ Edit & Sinkronisasi Kas Pembayaran Siswa")
                 col_k1, col_k2 = st.columns(2)
@@ -448,96 +544,6 @@ with menu_utama[idx_terakhir]:
                         """, (f_nisn.strip(), f_nama.strip().upper(), f_kelas.strip().upper(), f_total, f_bayar, f_status, f_ket.strip()))
                         conn.commit()
                         st.success(f"🎉 Data keuangan siswa {f_nama.upper()} berhasil diperbarui!")
-                        time.sleep(1)
-                        st.rerun()
-
-        # 2. FORM INPUT JADWAL
-        elif sub_menu == "📅 Atur Jadwal Pelajaran Baru":
-            with st.form("form_jadwal_adm", clear_on_submit=True):
-                st.write("### 📅 Tambah/Susun Jadwal Pelajaran Baru")
-                col_j1, col_j2 = st.columns(2)
-                with col_j1:
-                    j_hari = st.selectbox("Pilih Hari", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"])
-                    j_kelas = st.text_input("Untuk Kelas")
-                    j_mapel = st.text_input("Mata Pelajaran")
-                with col_j2:
-                    j_mulai = st.text_input("Jam Mulai")
-                    j_selesai = st.text_input("Jam Selesai")
-                    j_guru = st.text_input("Nama Guru Pengajar")
-                
-                if st.form_submit_button("Simpan Jadwal Pelajaran"):
-                    c.execute("INSERT INTO jadwal (hari, kelas, jam_mulai, jam_selesai, mata_pelajaran, guru_pengajar) VALUES (?,?,?,?,?,?)",
-                              (j_hari, j_kelas.strip().upper(), j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
-                    conn.commit()
-                    st.success("Jadwal pelajaran berhasil disimpan!")
-                    time.sleep(1)
-                    st.rerun()
-
-        # 3. FORM INPUT NILAI
-        elif sub_menu == "📊 Input Nilai Siswa":
-            with st.form("form_nilai", clear_on_submit=True):
-                st.write("### 📊 Input Rekap Nilai Siswa Baru")
-                col_v1, col_v2 = st.columns(2)
-                with col_v1:
-                    v_nisn = st.text_input("NISN Siswa")
-                    v_nama = st.text_input("Nama Lengkap Siswa")
-                    v_kelas = st.text_input("Kelas")
-                    v_mapel = st.text_input("Mata Pelajaran")
-                with col_v2:
-                    v_tugas = st.number_input("Nilai Tugas", min_value=0.0, max_value=100.0, value=80.0)
-                    v_uts = st.number_input("Nilai UTS", min_value=0.0, max_value=100.0, value=80.0)
-                    v_uas = st.number_input("Nilai UAS", min_value=0.0, max_value=100.0, value=80.0)
-                
-                if st.form_submit_button("Simpan & Hitung"):
-                    n_akhir = (v_tugas * 0.3) + (v_uts * 0.3) + (v_uas * 0.4)
-                    ket = "TUNTAS" if n_akhir >= 75 else "REMEDIAL"
-                    c.execute("INSERT INTO nilai (nisn, nama_siswa, kelas, mata_pelajaran, nilai_tugas, nilai_uts, nilai_uas, nilai_akhir, keterangan) VALUES (?,?,?,?,?,?,?,?,?)",
-                              (v_nisn.strip(), v_nama.strip().upper(), v_kelas.strip().upper(), v_mapel.strip().upper(), v_tugas, v_uts, v_uas, n_akhir, ket))
-                    conn.commit()
-                    st.success("Nilai Berhasil Disimpan!")
-                    time.sleep(1)
-                    st.rerun()
-
-        # 4. FORM UPLOAD E-BOOK BARU
-        elif sub_menu == "📚 Upload E-Book Baru":
-            with st.form("form_upload_ebook", clear_on_submit=True):
-                st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
-                col_eb1, col_eb2 = st.columns(2)
-                with col_eb1:
-                    eb_kelas = st.text_input("Untuk Kelas")
-                    eb_mapel = st.text_input("Mata Pelajaran")
-                with col_eb2:
-                    eb_judul = st.text_input("Judul / Nama File E-Book")
-                    eb_link = st.text_input("Tautan / Link Download E-Book")
-                eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
-                
-                if st.form_submit_button("Simpan & Publish E-Book"):
-                    if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
-                        st.error("❌ Semua kolom wajib diisi lengkap!")
-                    else:
-                        c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
-                                  (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
-                        conn.commit()
-                        st.success("E-Book berhasil diterbitkan!")
-                        time.sleep(1)
-                        st.rerun()
-
-        # 5. FORM INPUT INFORMASI 
-        elif sub_menu == "📝 Tulis Informasi":
-            with st.form("form_info_adm", clear_on_submit=True):
-                st.write("### 📝 Tulis Pengumuman / Informasi Sekolah Baru")
-                t_judul = st.text_input("Judul Informasi")
-                t_kat = st.selectbox("Kategori", ["Akademik", "Kegiatan Sekolah", "Umum"])
-                t_konten = st.text_area("Konten Berita")
-                t_penulis = "STAFF / GURU" if is_guru else "ADMIN"
-                
-                if st.form_submit_button("Publish Informasi"):
-                    if not (t_judul.strip() and t_konten.strip()):
-                        st.error("❌ Judul dan Konten tidak boleh kosong!")
-                    else:
-                        c.execute("INSERT INTO informasi (tanggal, judul, konten, kategori, penulis) VALUES (?,?,?,?,?)", (waktu_sekarang, t_judul, t_konten, t_kat, t_penulis))
-                        conn.commit()
-                        st.success("Sukses mempublikasikan informasi terbaru!")
                         time.sleep(1)
                         st.rerun()
 
