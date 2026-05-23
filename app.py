@@ -98,7 +98,7 @@ def init_db():
         pengunggah TEXT
     )
     """)
-    # Tabel Keuangan / SPP Siswa (BARU)
+    # Tabel Keuangan / SPP Siswa
     conn.execute("""
     CREATE TABLE IF NOT EXISTS keuangan (
         nisn TEXT PRIMARY KEY,
@@ -153,6 +153,32 @@ conn = init_db()
 c = conn.cursor()
 
 # ==========================================
+# 🗂️ FUNCTION UNTUK MENAMPILKAN EKSKUL & UNGGULAN
+# ==========================================
+def tampilkan_ekskul_dan_unggulan():
+    st.markdown("---")
+    col_unggul, col_ekskul = st.columns(2)
+    with col_unggul:
+        st.markdown("### 🏆 Program & Prestasi Unggulan")
+        with st.container(border=True):
+            st.markdown("⭐ **Pembiasaan Karakter & Imtaq**")
+            st.caption("Sholat berjamaah rutin, hafalan Juz Amma, dan pembentukan akhlak mulia sejak dini.")
+        with st.container(border=True):
+            st.markdown("⭐ **Juara Kompetisi Sains & Digitalisasi**")
+            st.caption("Pemanfaatan sistem digital belajar pintar terpadu dan juara kompetisi cerdas cermat.")
+    with col_ekskul:
+        st.markdown("### 🏹 Kegiatan Ekstrakurikuler (Ekskul)")
+        col_e1, col_e2 = st.columns(2)
+        with col_e1:
+            st.info("⚽ Futsal & Sepakbola")
+            st.info("⛺ Pramuka Inti")
+            st.info("🤖 Klub IT / Robotik")
+        with col_e2:
+            st.success("🥋 Pencak Silat")
+            st.success("🎨 Seni Tari & Musik")
+            st.success("🩺 Dokter Kecil / UKS")
+
+# ==========================================
 # 🔐 LOGIKA HAK AKSES DAN PASSWORD
 # ==========================================
 st.sidebar.title("🔑 Akses Pengguna")
@@ -201,13 +227,10 @@ st.sidebar.write(f"⏱️ **Waktu Sistem:** {waktu_sekarang}")
 # 📱 STRUKTUR TABS MENU UTAMA (DINAMIS)
 # ==========================================
 if is_ortu_siswa:
-    # Menu khusus Ortu/Siswa (Ditambahkan tab Keuangan)
-    daftar_tab = ["📊 Transkrip Nilai Siswa", "📚 E-Book Pelajaran Digital", "💰 Status Pembayaran Sekolah", "📅 Jadwal Pelajaran", "📢 Informasi & Pengumuman Internal"]
+    daftar_tab = ["📊 Transkrip Nilai Siswa", "📚 E-Book Pelajaran Digital", "💰 Status Pembayaran Sekolah", "📅 Jadwal Pelajaran", "📢 Informasi & Ekskul Sekolah"]
 elif is_admin or is_guru:
-    # Menu Guru/Staff/Admin
     daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)", "📢 Informasi & Pengumuman", "📅 Master Jadwal Pelajaran Sekolah", "📊 Database Nilai Global", "📚 Management E-Book", "💰 Rekap Kas Keuangan SPP"]
 else:
-    # Tampilan publik awal sebelum login
     daftar_tab = ["🏫 Profil Sekolah", "📝 Pendaftaran Siswa Baru (PPDB)"]
 
 daftar_tab.append("🛠️ Menu Kelola Admin/Staff")
@@ -261,36 +284,28 @@ if is_ortu_siswa:
                             st.markdown("<br>", unsafe_allow_html=True)
                             st.link_button("📥 Download E-Book", b['link_download'], use_container_width=True)
 
-    # 3. TAB STATUS PEMBAYARAN SEKOLAH (MENU BARU UNTUK SISWA)
+    # 3. TAB STATUS PEMBAYARAN SEKOLAH
     with menu_utama[2]:
         st.subheader("💰 Cek Administrasi & Biaya Sekolah Siswa")
-        st.markdown("Masukkan NISN Siswa untuk memeriksa riwayat setoran tagihan sekolah Anda.")
-        
         input_nisn_keu = st.text_input("🔎 Masukkan NISN Anda untuk Cek Keuangan:", placeholder="Contoh ketik: 12345 atau 54321")
         if input_nisn_keu.strip():
             c.execute("SELECT nama_siswa, kelas, total_biaya, sudah_dibayar, status_bayar, keterangan_lunas FROM keuangan WHERE nisn=?", (input_nisn_keu.strip(),))
             data_keu = c.fetchone()
-            
             if not data_keu:
-                st.warning("⚠️ Data administrasi keuangan untuk NISN tersebut belum terdaftar di sistem Bendahara. Silakan hubungi Staff Tata Usaha.")
+                st.warning("⚠️ Data administrasi keuangan untuk NISN tersebut belum terdaftar di sistem Bendahara.")
             else:
                 k_nama, k_kelas, k_total, k_bayar, k_status, k_ket = data_keu
                 sisa_tunggakan = max(0.0, k_total - k_bayar)
-                
-                # Desain Tampilan Kartu Informasi Keuangan
                 with st.container(border=True):
                     st.markdown(f"### 👤 Informasi Siswa: **{k_nama}** ({k_kelas})")
                     st.divider()
-                    
                     col_m1, col_m2, col_m3 = st.columns(3)
                     col_m1.metric(label="💵 Total Biaya Wajib (Rp)", value=f"{k_total:,.0f}")
-                    col_m2.metric(label="✅ Sudah Dibayar (Rp)", value=f"{k_bayar:,.0f}", delta=f"Tercatat Bendahara")
+                    col_m2.metric(label="✅ Sudah Dibayar (Rp)", value=f"{k_bayar:,.0f}")
                     if sisa_tunggakan > 0:
                         col_m3.metric(label="🚨 Sisa Tunggakan (Rp)", value=f"{sisa_tunggakan:,.0f}", delta=f"- Belum Lunas", delta_color="inverse")
                     else:
                         col_m3.metric(label="🎉 Sisa Tunggakan (Rp)", value="0", delta=f"Bersih / Lunas", delta_color="normal")
-                
-                # Kotak Status Utama
                 if k_status == "LUNAS":
                     st.success(f"🟢 **STATUS PEMBAYARAN: LUNAS**\n\n📌 **Catatan Bendahara:** {k_ket}")
                 else:
@@ -308,15 +323,21 @@ if is_ortu_siswa:
                 query_filter = query_filter[query_filter['kelas'] == filter_kelas]
             st.dataframe(query_filter, use_container_width=True, hide_index=True)
 
-    # 5. TAB INFORMASI
+    # 5. TAB INFORMASI (DI SINI SAYA MASUKKAN KEMBALI KARTU PRESTASI & EKSKUL UNTUK SISWA)
     with menu_utama[4]:
         st.subheader("📢 Informasi & Pengumuman Internal Sekolah")
         df_info = pd.read_sql_query("SELECT * FROM informasi ORDER BY tanggal DESC", conn)
-        for _, r in df_info.iterrows():
-            with st.container(border=True):
-                st.markdown(f"### {r['judul']}")
-                st.caption(f"📅 {r['tanggal']} | Kategori: {r['kategori']}")
-                st.markdown(r['konten'])
+        if df_info.empty:
+            st.info("Belum ada pengumuman tertulis dari guru.")
+        else:
+            for _, r in df_info.iterrows():
+                with st.container(border=True):
+                    st.markdown(f"### {r['judul']}")
+                    st.caption(f"📅 {r['tanggal']} | Kategori: {r['kategori']}")
+                    st.markdown(r['konten'])
+        
+        # Pengumuman Ekstrakurikuler Statis Siswa
+        tampilkan_ekskul_dan_unggulan()
 
 
 # --- KONDISI B: TAMPILAN DEFAULT UMUM / ADMIN / GURU / STAFF ---
@@ -338,6 +359,9 @@ else:
             with st.container(border=True):
                 st.markdown("### 🧪 Fasilitas Sekolah")
                 st.write(p_fasilitas)
+
+        # Ekskul dan Unggulan di halaman Publik/Admin
+        tampilkan_ekskul_dan_unggulan()
 
     # 2. TAB PPDB
     with menu_utama[1]:
@@ -372,13 +396,11 @@ else:
 # --- TAB PALING UJUNG: PANEL KELOLA / MANAJEMEN DATA ---
 idx_terakhir = len(daftar_tab) - 1
 with menu_utama[idx_terakhir]:
-    # AKSES FORM: Harus Login Admin atau Guru/Staff
     if not (is_admin or is_guru):
         st.warning("🔒 **Akses Terbatas!** Menu Kelola ini dikunci. Silakan masuk sebagai **GURU/STAFF** atau **ADMIN UTAMA** di sidebar.")
     else:
         st.subheader("🛠️ Panel Input & Pembaruan Data Sekolah")
         
-        # Pilihan sub-menu input (Guru/Staff sekarang punya hak akses "Update Pembayaran Siswa")
         opsi_kelola = ["💰 Update Pembayaran Siswa", "📅 Atur Jadwal Pelajaran Baru", "📊 Input Nilai Siswa", "📚 Upload E-Book Baru", "📝 Tulis Informasi"]
         if is_admin:
             opsi_kelola.extend(["⚙️ Atur PPDB", "🏫 Edit Profil"])
@@ -386,28 +408,27 @@ with menu_utama[idx_terakhir]:
         sub_menu = st.radio("Pilih Operasi:", opsi_kelola, horizontal=True)
         st.divider()
         
-        # 1. FORM EDIT & UPDATE BIAYA/PEMBAYARAN SEKOLAH SISWA (BARU UNTUK STAFF & ADMIN)
+        # 1. FORM EDIT & UPDATE KEUANGAN
         if sub_menu == "💰 Update Pembayaran Siswa":
             with st.form("form_update_keuangan", clear_on_submit=True):
                 st.write("### ⚙️ Edit & Sinkronisasi Kas Pembayaran Siswa")
                 col_k1, col_k2 = st.columns(2)
                 with col_k1:
-                    f_nisn = st.text_input("NISN Siswa Terdaftar", placeholder="Ketik NISN...")
-                    f_nama = st.text_input("Nama Lengkap Siswa", placeholder="Ketik Nama Lengkap...")
-                    f_kelas = st.text_input("Kelas Siswa", placeholder="Contoh: KELAS 3")
+                    f_nisn = st.text_input("NISN Siswa Terdaftar")
+                    f_nama = st.text_input("Nama Lengkap Siswa")
+                    f_kelas = st.text_input("Kelas Siswa")
                 with col_k2:
                     f_total = st.number_input("Total Kewajiban Tagihan Sekolah (Rp)", min_value=0, value=1200000, step=50000)
                     f_bayar = st.number_input("Jumlah Uang yang Sudah Dibayar (Rp)", min_value=0, value=0, step=50000)
                     f_status = st.selectbox("Status Pembayaran saat ini:", ["BELUM LUNAS", "LUNAS"])
                 
-                f_ket = st.text_input("Keterangan Tambahan / Lunas Sampai Kapan:", placeholder="Contoh: Lunas Sampai Bulan Agustus 2026 atau Baru Angsuran Ke-1")
+                f_ket = st.text_input("Keterangan Tambahan / Lunas Sampai Kapan:")
                 
                 submit_keu = st.form_submit_button("Simpan Perubahan Data Keuangan")
                 if submit_keu:
                     if not (f_nisn.strip() and f_nama.strip()):
-                        st.error("❌ Data NISN dan Nama Siswa tidak boleh kosong!")
+                        st.error("❌ Data NISN dan Nama Siswa wajib diisi!")
                     else:
-                        # Logika Upsert (Ganti data jika NISN sudah ada, atau buat baru jika tidak ada)
                         c.execute("""
                             INSERT INTO keuangan (nisn, nama_siswa, kelas, total_biaya, sudah_dibayar, status_bayar, keterangan_lunas)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -420,7 +441,7 @@ with menu_utama[idx_terakhir]:
                                 keterangan_lunas=excluded.keterangan_lunas
                         """, (f_nisn.strip(), f_nama.strip().upper(), f_kelas.strip().upper(), f_total, f_bayar, f_status, f_ket.strip()))
                         conn.commit()
-                        st.success(f"🎉 Sukses! Data administrasi keuangan untuk siswa {f_nama.upper()} berhasil di-update.")
+                        st.success(f"🎉 Data keuangan siswa {f_nama.upper()} berhasil diperbarui!")
                         time.sleep(1)
                         st.rerun()
 
@@ -431,26 +452,20 @@ with menu_utama[idx_terakhir]:
                 col_j1, col_j2 = st.columns(2)
                 with col_j1:
                     j_hari = st.selectbox("Pilih Hari", ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"])
-                    j_kelas = st.text_input("Untuk Kelas (Contoh: KELAS 3, KELAS 1-A, KELAS 4)", placeholder="Ketik ruang/tingkat kelas...")
-                    j_mapel = st.text_input("Mata Pelajaran (Contoh: MATEMATIKA, IPA, BAHASA INDONESIA)")
+                    j_kelas = st.text_input("Untuk Kelas")
+                    j_mapel = st.text_input("Mata Pelajaran")
                 with col_j2:
-                    j_mulai = st.text_input("Jam Mulai (Contoh: 07:30)")
-                    j_selesai = st.text_input("Jam Selesai (Contoh: 09:00)")
+                    j_mulai = st.text_input("Jam Mulai")
+                    j_selesai = st.text_input("Jam Selesai")
                     j_guru = st.text_input("Nama Guru Pengajar")
                 
-                submit_j = st.form_submit_button("Simpan Jadwal Pelajaran")
-                if submit_j:
-                    if not (j_kelas.strip() and j_mapel.strip() and j_mulai.strip() and j_selesai.strip()):
-                        st.error("❌ Mohon isi data Hari, Kelas, Mapel, dan Jam pelajaran dengan lengkap!")
-                    else:
-                        c.execute("""
-                            INSERT INTO jadwal (hari, kelas, jam_mulai, jam_selesai, mata_pelajaran, guru_pengajar) 
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (j_hari, j_kelas.strip().upper(), j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
-                        conn.commit()
-                        st.success(f"🎉 Jadwal pelajaran {j_mapel.upper()} untuk {j_kelas.upper()} berhasil disimpan!")
-                        time.sleep(1)
-                        st.rerun()
+                if st.form_submit_button("Simpan Jadwal Pelajaran"):
+                    c.execute("INSERT INTO jadwal (hari, kelas, jam_mulai, jam_selesai, mata_pelajaran, guru_pengajar) VALUES (?,?,?,?,?,?)",
+                              (j_hari, j_kelas.strip().upper(), j_mulai.strip(), j_selesai.strip(), j_mapel.strip().upper(), j_guru.strip().upper()))
+                    conn.commit()
+                    st.success("Jadwal pelajaran berhasil disimpan!")
+                    time.sleep(1)
+                    st.rerun()
 
         # 3. FORM INPUT NILAI
         elif sub_menu == "📊 Input Nilai Siswa":
@@ -478,20 +493,17 @@ with menu_utama[idx_terakhir]:
                 st.write("### 📤 Upload / Tambah E-Book Pelajaran Baru")
                 col_eb1, col_eb2 = st.columns(2)
                 with col_eb1:
-                    eb_kelas = st.text_input("Untuk Kelas (Contoh: KELAS 3, KELAS 1-A)")
-                    eb_mapel = st.text_input("Mata Pelajaran (Contoh: MTK, IPA)")
+                    eb_kelas = st.text_input("Untuk Kelas")
+                    eb_mapel = st.text_input("Mata Pelajaran")
                 with col_eb2:
                     eb_judul = st.text_input("Judul / Nama File E-Book")
-                    eb_link = st.text_input("Tautan / Link Download E-Book (Google Drive/Dropbox)")
+                    eb_link = st.text_input("Tautan / Link Download E-Book")
                 eb_pengunggah = "GURU / STAFF" if is_guru else "ADMIN UTAMA"
                 if st.form_submit_button("Simpan & Publish E-Book"):
-                    if not (eb_kelas.strip() and eb_mapel.strip() and eb_judul.strip() and eb_link.strip()):
-                        st.error("❌ Semua kolom wajib diisi lengkap!")
-                    else:
-                        c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
-                                  (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
+                    c.execute("INSERT INTO ebook (kelas, mata_pelajaran, judul_buku, link_download, pengunggah) VALUES (?,?,?,?,?)",
+                              (eb_kelas.strip().upper(), eb_mapel.strip().upper(), eb_judul.strip(), eb_link.strip(), eb_pengunggah))
                         conn.commit()
-                        st.success(f"🎉 E-Book '{eb_judul}' berhasil diterbitkan!")
+                        st.success("E-Book berhasil diterbitkan!")
                         time.sleep(1)
                         st.rerun()
 
